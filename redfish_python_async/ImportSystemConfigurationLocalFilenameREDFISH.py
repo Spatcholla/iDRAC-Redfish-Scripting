@@ -43,15 +43,15 @@ logging.getLogger("chardet.charsetprober").disabled = True
 
 
 async def main(
-    ip: str,
-    username: str,
-    password: str,
-    script_examples: str,
-    target: str,
-    shutdown: str,
-    filename: str,
-    end_state: str,
-    file: IO
+        ip: str,
+        username: str,
+        password: str,
+        script_examples: str,
+        target: str,
+        shutdown: str,
+        filename: str,
+        end_state: str,
+        file: IO
 ) -> None:
     """Crawl & write concurrently to `file` for multiple `urls`."""
     config = get_config(filename)
@@ -119,11 +119,11 @@ async def write_status(file: IO, url: str, **kwargs) -> None:
 
 
 async def post_config(
-    url: str,
-    session: ClientSession,
-    payload: str,
-    headers: dict,
-) -> str:
+        url: str,
+        session: ClientSession,
+        payload: str,
+        headers: dict,
+) -> tuple:
     """POST request wrapper to push iDRAC configuration.
     """
 
@@ -136,42 +136,24 @@ async def post_config(
     response.raise_for_status()
     logger.info(f"Got response [{response.status}] for URL: {url}")
 
-    print(response)
-    print("\n\n\n")
-    print(response.text())
-    print("\n\n\n")
+    try:
+        job_id = re.search("JID_\d+", str(response)).group()
+        print(job_id)
+    except:
+        print(f"\n- FAIL: status code {response.status} returned")
+        print(f"- Detailed error information: {response}")
 
-    d = str(response.__dict__)
-
-    print(d)
-
-    return d
-
-    # try:
-    #     z = re.search("JID_.+?,", d).group()
-    # except:
-    #     print(f"\n- FAIL: status code {response.status} returned")
-    #     print(f"- Detailed error information: {d}")
-    #     sys.exit()
-    #
     # job_id = re.sub("[,']", "", z)
-    # if response.status != 202:
-    #     print(f"\n- FAIL, status code not 202\n, code is: {response.status}")
-    #     sys.exit()
-    # else:
-    #     print(
-    #         f"\n- {job_id} successfully created for ImportSystemConfiguration method\n"
-    #     )
-    #
-    # response_output = response.__dict__
-    # job_id = response_output["headers"]["Location"]
-    # job_id = re.search("JID_.+", job_id).group()
-    #
-    # start_time = datetime.now()
-    #
-    # return await resp.text()
-    #
-    # return job_id, start_time
+    if response.status != 202:
+        print(f"\n- FAIL, status code not 202\n, code is: {response.status}")
+        logger.info(f"FAIL -- Got response [{response.status}] for URL: {url}")
+    else:
+        print(f"\n- {job_id} successfully created for ImportSystemConfiguration method\n")
+        logger.info(f"FAIL -- Got response [{response.status}] for URL: {url}")
+
+    start_time = datetime.now()
+
+    return job_id, start_time
 
 
 # async def get_job_status(
@@ -285,7 +267,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description="Python script using Redfish API to import the host server configuration profile locally from a "
-        "configuration file."
+                    "configuration file."
     )
     parser.add_argument("-ip", help="iDRAC IP address", required=True)
     parser.add_argument("-u", "--username", help="iDRAC username", required=True)
@@ -294,25 +276,25 @@ if __name__ == "__main__":
         "script_examples",
         action="store_true",
         help="ImportSystemConfigurationLocalFilenameREDFISH.py -ip 192.168.0.120 -u root -p calvin -t ALL "
-        "-f SCP_export_R740, this example is going to import SCP file and apply all attribute changes "
-        "for all components. \nImportSystemConfigurationLocalFilenameREDFISH.py -ip 192.168.0.120 "
-        "-u root -p calvin -t BIOS --filename R740_scp_file -s Forced, this example is going to only "
-        "apply BIOS changes from the SCP file along with forcing a server power reboot.",
+             "-f SCP_export_R740, this example is going to import SCP file and apply all attribute changes "
+             "for all components. \nImportSystemConfigurationLocalFilenameREDFISH.py -ip 192.168.0.120 "
+             "-u root -p calvin -t BIOS --filename R740_scp_file -s Forced, this example is going to only "
+             "apply BIOS changes from the SCP file along with forcing a server power reboot.",
     )
     parser.add_argument(
         "-t",
         "--target",
         help="Pass in Target value to set component attributes. You can pass in 'ALL' to set all component attributes "
-        "or pass in a specific component to set only those attributes. Supported values are: ALL, System, BIOS, "
-        "IDRAC, NIC, FC, LifecycleController, RAID.",
+             "or pass in a specific component to set only those attributes. Supported values are: ALL, System, BIOS, "
+             "IDRAC, NIC, FC, LifecycleController, RAID.",
         required=True,
     )
     parser.add_argument(
         "-s",
         "--shutdown",
         help="Pass in ShutdownType value. Supported values are Graceful, Forced and NoReboot. If you don't use this "
-        "optional parameter, default value is Graceful. NOTE: If you pass in NoReboot value, configuration changes "
-        "will not be applied until the next server manual reboot.",
+             "optional parameter, default value is Graceful. NOTE: If you pass in NoReboot value, configuration changes "
+             "will not be applied until the next server manual reboot.",
         required=False,
     )
     parser.add_argument(
@@ -325,7 +307,7 @@ if __name__ == "__main__":
         "-e",
         "--end-state",
         help="Pass in end HostPowerState value. Supported values are On and Off. If you don't use this optional "
-        "parameter, default value is On",
+             "parameter, default value is On",
         required=False,
     )
     args = vars(parser.parse_args())
