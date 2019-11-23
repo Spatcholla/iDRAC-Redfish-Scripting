@@ -130,7 +130,6 @@ async def post_config(
         url=url,
         data=json.dumps(payload),
         headers=headers,
-        verify=False,
     )
     response.raise_for_status()
     logger.info(f"Got response [{response.status}] for URL: {url}")
