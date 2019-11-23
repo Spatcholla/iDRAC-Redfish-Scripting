@@ -129,7 +129,7 @@ async def post_config(
 
     response = await session.post(
         url=url,
-        data=payload,
+        data=json.dumps(payload),
         headers=headers,
         ssl=False,
     )
@@ -271,7 +271,9 @@ def get_config(filename: str) -> str:
     try:
         with path.open("r") as fin:
             config = fin.read()
-            config = re.sub(r"[\n ]", "", config)
+            config = re.sub(" \n ", "", config)
+            config = re.sub(" \n", "", config)
+            config = re.sub("   ", "", config)
             return config
     except FileNotFoundError as err:
         print(f"An error has occurred; please check file path.\n{err}")
