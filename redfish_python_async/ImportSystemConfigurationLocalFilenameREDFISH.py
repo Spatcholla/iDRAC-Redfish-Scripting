@@ -144,7 +144,8 @@ async def post_config(
         print(f"- Detailed error information: {response}")
 
     # job_id = re.sub("[,']", "", z)
-    if response.status != 202:
+    print(type(response.status))
+    if int(response.status) != 202:
         print(f"\n- FAIL, status code not 202\n, code is: {response.status}")
         logger.info(f"FAIL -- Got response [{response.status}] for URL: {url}")
     else:
