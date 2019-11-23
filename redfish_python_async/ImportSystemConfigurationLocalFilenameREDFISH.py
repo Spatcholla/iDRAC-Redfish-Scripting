@@ -129,7 +129,7 @@ async def post_config(
 
     response = await session.post(
         url=url,
-        data=json.dumps(payload),
+        data=payload,
         headers=headers,
         ssl=False,
     )
