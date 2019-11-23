@@ -109,12 +109,13 @@ async def main(
 async def write_status(file: IO, url: str, **kwargs) -> None:
     """Write the found response from `url` to `file`."""
     res = await post_config(url=url, **kwargs)
-    if not res:
-        return None
-    async with aiofiles.open(file, "a") as f:
-        for p in res:
-            await f.write(f"{url}\t{p}\n")
-        logger.info(f"Wrote results for source URL: {url}")
+    print(res)
+    # if not res:
+    #     return None
+    # async with aiofiles.open(file, "a") as f:
+    #     for p in res:
+    #         await f.write(f"{url}\t{p}\n")
+    #     logger.info(f"Wrote results for source URL: {url}")
 
 
 async def post_config(
