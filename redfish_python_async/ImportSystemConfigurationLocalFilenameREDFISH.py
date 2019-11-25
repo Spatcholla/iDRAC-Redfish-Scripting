@@ -27,14 +27,14 @@ async def main(
     password: str,
     target: str,
     shutdown: str,
-    config_file: str,
+    filename: str,
     end_state: str,
     file: IO,
 ) -> None:
     """Crawl & write concurrently to `file` for multiple `urls`."""
     job = locals()
 
-    config = get_config(config_file)
+    config = get_config(filename)
 
     auth = aiohttp.BasicAuth(login=username, password=password)
 
