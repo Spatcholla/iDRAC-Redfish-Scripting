@@ -70,7 +70,7 @@ async def parse_status(ip: str, job_id: str, session: ClientSession, **kwargs) -
 
         print(f"Response code: {response.status}; Type: {type(response.status)}; Equals 202, {response.status == 202}")
 
-        if response.status != 202 or 200:
+        if response.status != 202 or response.status != 200:
             counter += 1
             logger.info(f"RETRY -- Got response [{response.status}] for {ip}; attempt: {counter}")
             if counter >= 10:
