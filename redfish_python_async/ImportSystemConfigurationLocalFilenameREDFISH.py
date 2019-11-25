@@ -40,7 +40,7 @@ async def main(
     auth = aiohttp.BasicAuth(login=username, password=password)
 
     async with ClientSession(auth=auth) as job["session"]:
-        post_results = await post_config(**job)
+        post_results = await post_config(config=config, **job)
         job.update(**post_results)
         if "job_id" in job:
             status_results = await parse_status(**job)
@@ -192,13 +192,13 @@ async def get_status(
 
 
 async def post_config(
-    session: ClientSession,
-    ip: str,
-    target: str,
-    shutdown: str,
     config: str,
     end_state: str,
+    ip: str,
     node: str,
+    session: ClientSession,
+    shutdown: str,
+    target: str,
     **kwargs: dict,
 ) -> dict:
     """POST request wrapper to push iDRAC configuration.
