@@ -29,7 +29,7 @@ async def main(
     shutdown: str,
     filename: str,
     end_state: str,
-    file: IO,
+    output_file: IO,
 ) -> None:
     """Crawl & write concurrently to `file` for multiple `urls`."""
     job = locals()
@@ -47,9 +47,10 @@ async def main(
         await write_status(**job)
 
 
-async def write_status(file: IO, **kwargs) -> None:
+async def write_status(output_file: IO, **kwargs) -> None:
     """Write the status of job from `node` to `file`."""
-    print(kwargs)
+    pass
+    # print(kwargs)
     # if not res:
     #     return None
     # async with aiofiles.open(file, "a") as f:
@@ -312,4 +313,4 @@ if __name__ == "__main__":
     with open(outpath, "w") as outfile:
         outfile.write("source_url\tstatus\n")
 
-    asyncio.run(main(file=outfile, **args))
+    asyncio.run(main(output_file=outfile, **args))
