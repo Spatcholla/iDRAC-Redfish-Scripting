@@ -66,18 +66,20 @@ async def parse_status(ip: str, job_id: str, session: ClientSession, **kwargs) -
     counter = 0
     while True:
         response = await get_status(ip=ip, job_id=job_id, session=session)
-        status = await response.status
+        if response.status == 202:
+            print("Why does this work but '!=' doesn't...?")
+        status = response.status
         data = await response.json()
 
         print(f"Response code: {status}; Type: {type(status)}; Equals 202, {status == 202}")
 
-        if status != 202 or status != 200:
-            counter += 1
-            logger.info(f"RETRY -- Got response [{response.status}] for {ip}; attempt: {counter}")
-            if counter >= 10:
-                return job
-            await asyncio.sleep(10)
-            continue
+        # if status != 202 or status != 200:
+        #     counter += 1
+        #     logger.info(f"RETRY -- Got response [{response.status}] for {ip}; attempt: {counter}")
+        #     if counter >= 10:
+        #         return job
+        #     await asyncio.sleep(10)
+        #     continue
 
         fail_messages = [
             "failed",
