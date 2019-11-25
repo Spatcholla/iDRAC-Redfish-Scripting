@@ -22,14 +22,14 @@ logging.getLogger("chardet.charsetprober").disabled = True
 
 
 async def main(
-        ip: str,
-        username: str,
-        password: str,
-        target: str,
-        shutdown: str,
-        config_file: str,
-        end_state: str,
-        file: IO,
+    ip: str,
+    username: str,
+    password: str,
+    target: str,
+    shutdown: str,
+    config_file: str,
+    end_state: str,
+    file: IO,
 ) -> None:
     """Crawl & write concurrently to `file` for multiple `urls`."""
     job = locals()
@@ -38,7 +38,7 @@ async def main(
 
     auth = aiohttp.BasicAuth(login=username, password=password)
 
-    async with ClientSession(auth=auth) as job['session']:
+    async with ClientSession(auth=auth) as job["session"]:
         post_results = await post_config(**job)
         job.update(**post_results)
         if "job_id" in job:
@@ -64,10 +64,7 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
     while True:
         try:
             response = await get_status(ip=ip, job_id=job_id, session=session)
-        except (
-            aiohttp.ClientError,
-            aiohttp.ClientConnectionError,
-        ) as e:
+        except (aiohttp.ClientError, aiohttp.ClientConnectionError,) as e:
             logger.error(
                 f"aiohttp exception for {ip} [{getattr(e, 'status', None)}]: {getattr(e, 'message', None),}"
             )
@@ -92,7 +89,7 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
                 "not compliant",
                 "Unable",
                 "The system could not be shut down",
-                "No device configuration"
+                "No device configuration",
             ]
 
             success_messages = [
@@ -113,18 +110,24 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
             def job_state(states: list, message: str) -> list:
                 return [state for state in states if state in message]
 
-            if any(job_state(states=fail_messages, message=data['Oem']['Dell']['Message'])):
+            if any(
+                job_state(states=fail_messages, message=data["Oem"]["Dell"]["Message"])
+            ):
                 logger.info(
-                    f"FAIL -- {job['job_id']} marked as {data[u'Oem'][u'Dell'][u'JobState']} but detected issue(s). "
+                    f"FAIL -- {job['job_id']} marked as {data['Oem']['Dell']['JobState']} but detected issue(s). "
                     f"See detailed job results below for more information on failure\n"
                     f"Detailed job results for {job['job_id']}\n"
                     f"{data['Oem']['Dell']}\n"
                     f"{data['Messages']}\n"
                 )
-                job['status'] = "failed"
+                job["status"] = "failed"
                 return job
 
-            elif any(job_state(states=reboot_messages, message=data['Oem']['Dell']['Message'])):
+            elif any(
+                job_state(
+                    states=reboot_messages, message=data["Oem"]["Dell"]["Message"]
+                )
+            ):
                 logger.info(
                     f"REBOOT -- job ID {job['job_id']} successfully marked completed. NoReboot value detected and "
                     f"config changes will not be applied until next manual server reboot\n"
@@ -132,12 +135,16 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
                     f"{data['Oem']['Dell']}\n"
                     f"{data['Messages']}\n"
                 )
-                job['status'] = "reboot needed"
+                job["status"] = "reboot needed"
                 return job
 
-            elif any(job_state(states=success_messages, message=data['Oem']['Dell']['Message'])):
+            elif any(
+                job_state(
+                    states=success_messages, message=data["Oem"]["Dell"]["Message"]
+                )
+            ):
                 end = time.perf_counter_ns()
-                completion_time = (end - job['start']) / 1e9
+                completion_time = (end - job["start"]) / 1e9
 
                 logger.info(
                     f"SUCCESS -- job ID {job['job_id']} successfully marked completed\n"
@@ -147,17 +154,21 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
                     f"Config results for job ID {job['job_id']}\n"
                     f"{data['Messages']}\n"
                 )
-                job['end'] = end
-                job['completion_time'] = completion_time
-                job['status'] = 'completed'
+                job["end"] = end
+                job["completion_time"] = completion_time
+                job["status"] = "completed"
                 return job
 
-            elif any(job_state(states=no_change_messages, message=data['Oem']['Dell']['Message'])):
+            elif any(
+                job_state(
+                    states=no_change_messages, message=data["Oem"]["Dell"]["Message"]
+                )
+            ):
                 logger.info(
                     f"NO CHANGE -- job ID {job['job_id']} marked completed\n"
                     f"Detailed job results for job ID {job['job_id']}\n"
                 )
-                job['status'] = 'no change'
+                job["status"] = "no change"
                 return job
 
             else:
@@ -170,26 +181,23 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
 
 
 async def get_status(
-        ip: str,
-        session: ClientSession,
-        job_id: str,
+    ip: str, session: ClientSession, job_id: str,
 ) -> aiohttp.ClientResponse:
     response = await session.get(
-        url=f"https://{ip}/redfish/v1/TaskService/Tasks/{job_id}",
-        ssl=False,
+        url=f"https://{ip}/redfish/v1/TaskService/Tasks/{job_id}", ssl=False,
     )
     return response
 
 
 async def post_config(
-        session: ClientSession,
-        ip: str,
-        target: str,
-        shutdown: str,
-        config: str,
-        end_state: str,
-        node: str,
-        **kwargs: dict,
+    session: ClientSession,
+    ip: str,
+    target: str,
+    shutdown: str,
+    config: str,
+    end_state: str,
+    node: str,
+    **kwargs: dict,
 ) -> dict:
     """POST request wrapper to push iDRAC configuration.
     """
@@ -205,10 +213,7 @@ async def post_config(
     headers = {"content-type": "application/json"}
 
     response = await session.post(
-        url=url,
-        data=json.dumps(payload),
-        headers=headers,
-        ssl=False,
+        url=url, data=json.dumps(payload), headers=headers, ssl=False,
     )
     response.raise_for_status()
     logger.info(f"Got response [{response.status}] for {node}")
@@ -222,14 +227,16 @@ async def post_config(
     if response.status != 202:
         logger.info(f"FAIL -- Got response [{response.status}] for {node}")
     else:
-        print(f"\n- {job_id} successfully created for ImportSystemConfiguration method\n")
+        print(
+            f"\n- {job_id} successfully created for ImportSystemConfiguration method\n"
+        )
         logger.info(f"SUCCESS -- {job_id} successfully created for {node}")
 
     start = time.perf_counter_ns()
 
     job = {
-        'job_id': job_id,
-        'start': start,
+        "job_id": job_id,
+        "start": start,
     }
 
     return job
@@ -254,7 +261,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(
         description="Python script using Redfish API to import the host server configuration profile locally from a "
-                    "configuration file."
+        "configuration file."
     )
     parser.add_argument("-ip", help="iDRAC IP address", required=True)
     parser.add_argument("-u", "--username", help="iDRAC username", required=True)
@@ -272,16 +279,16 @@ if __name__ == "__main__":
         "-t",
         "--target",
         help="Pass in Target value to set component attributes. You can pass in 'ALL' to set all component attributes "
-             "or pass in a specific component to set only those attributes. Supported values are: ALL, System, BIOS, "
-             "IDRAC, NIC, FC, LifecycleController, RAID.",
+        "or pass in a specific component to set only those attributes. Supported values are: ALL, System, BIOS, "
+        "IDRAC, NIC, FC, LifecycleController, RAID.",
         required=True,
     )
     parser.add_argument(
         "-s",
         "--shutdown",
         help="Pass in ShutdownType value. Supported values are Graceful, Forced and NoReboot. If you don't use this "
-             "optional parameter, default value is Graceful. NOTE: If you pass in NoReboot value, configuration changes "
-             "will not be applied until the next server manual reboot.",
+        "optional parameter, default value is Graceful. NOTE: If you pass in NoReboot value, configuration changes "
+        "will not be applied until the next server manual reboot.",
         required=False,
     )
     parser.add_argument(
@@ -294,7 +301,7 @@ if __name__ == "__main__":
         "-e",
         "--end-state",
         help="Pass in end HostPowerState value. Supported values are On and Off. If you don't use this optional "
-             "parameter, default value is On",
+        "parameter, default value is On",
         required=False,
     )
     args = vars(parser.parse_args())
