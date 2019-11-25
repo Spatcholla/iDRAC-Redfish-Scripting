@@ -35,7 +35,7 @@ async def main(
     job = locals()
 
     config = get_config(filename)
-    job['node'] = '3VC6BZ2'
+    job['node'] = '3V5FBZ2'
 
     auth = aiohttp.BasicAuth(login=username, password=password)
 
@@ -60,31 +60,18 @@ async def write_status(output_file: IO, **kwargs) -> None:
     #     logger.info(f"Wrote results for source URL: {url}")
 
 
-async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -> dict:
+async def parse_status(ip: str, job_id: str, session: ClientSession, **kwargs) -> dict:
     """Find HREFs in the HTML of `url`."""
     job = dict()
     counter = 0
     while True:
-        try:
-            response = await get_status(ip=ip, job_id=job_id, session=session)
-        except (aiohttp.ClientError, aiohttp.ClientConnectionError,) as e:
-            logger.error(
-                f"aiohttp exception for {ip} [{getattr(e, 'status', None)}]: {getattr(e, 'message', None),}"
-            )
-            job['error'] = e
-            return job
-        except Exception as e:
-            logger.exception(
-                f"Non-aiohttp exception occured: {getattr(e, '__dict__', {})}"
-            )
-            job['error'] = e
-            return job
-
+        response = await get_status(ip=ip, job_id=job_id, session=session)
         data = response.json()
+
         if response.status != 202 or 200:
             counter += 1
             logger.info(f"RETRY -- Got response [{response.status}] for {ip}; attempt: {counter}")
-            if counter > 10:
+            if counter >= 10:
                 return job
             await asyncio.sleep(10)
             continue
@@ -113,9 +100,6 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
             "No changes",
             "No configuration changes",
         ]
-
-        def job_state(states: list, message: str) -> list:
-            return [state for state in states if state in message]
 
         if any(
             job_state(states=fail_messages, message=data["Oem"]["Dell"]["Message"])
@@ -190,10 +174,20 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
 async def get_status(
     ip: str, session: ClientSession, job_id: str,
 ) -> aiohttp.ClientResponse:
-    response = await session.get(
-        url=f"https://{ip}/redfish/v1/TaskService/Tasks/{job_id}", ssl=False,
-    )
-    return response
+    try:
+        response = await session.get(
+            url=f"https://{ip}/redfish/v1/TaskService/Tasks/{job_id}",
+            ssl=False,
+        )
+        return response
+    except (aiohttp.ClientError, aiohttp.ClientConnectionError,) as e:
+        logger.error(
+            f"aiohttp exception for {ip} [{getattr(e, 'status', None)}]: {getattr(e, 'message', None),}"
+        )
+    except Exception as e:
+        logger.exception(
+            f"Non-aiohttp exception occurred: {getattr(e, '__dict__', {})}"
+        )
 
 
 async def post_config(
@@ -227,26 +221,27 @@ async def post_config(
 
     try:
         job_id = re.search("JID_\d+", str(response)).group()
-    except:
-        print(f"\n- FAIL: status code {response.status} returned")
-        print(f"- Detailed error information: {response}")
+        if response.status != 202:
+            logger.info(f"FAIL -- Got response [{response.status}] for {node}")
+        else:
+            logger.info(f"SUCCESS -- {job_id} successfully created for {node}")
 
-    if response.status != 202:
-        logger.info(f"FAIL -- Got response [{response.status}] for {node}")
-    else:
-        print(
-            f"\n- {job_id} successfully created for ImportSystemConfiguration method\n"
+        start = time.perf_counter_ns()
+
+        job = {
+            "job_id": job_id,
+            "start": start,
+        }
+
+        return job
+    except (aiohttp.ClientError, aiohttp.ClientConnectionError,) as e:
+        logger.error(
+            f"aiohttp exception for {node} [{getattr(e, 'status', None)}]: {getattr(e, 'message', None),}"
         )
-        logger.info(f"SUCCESS -- {job_id} successfully created for {node}")
-
-    start = time.perf_counter_ns()
-
-    job = {
-        "job_id": job_id,
-        "start": start,
-    }
-
-    return job
+    except Exception as e:
+        logger.exception(
+            f"Non-aiohttp exception occurred: {getattr(e, '__dict__', {})}"
+        )
 
 
 def get_config(filename: str) -> str:
@@ -261,6 +256,10 @@ def get_config(filename: str) -> str:
     except FileNotFoundError as err:
         print(f"An error has occurred; please check file path.\n{err}")
         raise
+
+
+def job_state(states: list, message: str) -> list:
+    return [state for state in states if state in message]
 
 
 if __name__ == "__main__":
