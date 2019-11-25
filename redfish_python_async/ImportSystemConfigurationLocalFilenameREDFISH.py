@@ -63,6 +63,7 @@ async def write_status(output_file: IO, **kwargs) -> None:
 async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -> dict:
     """Find HREFs in the HTML of `url`."""
     job = dict()
+    counter = 0
     while True:
         try:
             response = await get_status(ip=ip, job_id=job_id, session=session)
@@ -70,116 +71,120 @@ async def parse_status(ip: str, session: ClientSession, job_id: str, **kwargs) -
             logger.error(
                 f"aiohttp exception for {ip} [{getattr(e, 'status', None)}]: {getattr(e, 'message', None),}"
             )
+            job['error'] = e
             return job
         except Exception as e:
             logger.exception(
                 f"Non-aiohttp exception occured: {getattr(e, '__dict__', {})}"
             )
+            job['error'] = e
             return job
+
+        data = response.json()
+        if response.status != 202 or 200:
+            counter += 1
+            logger.info(f"RETRY -- Got response [{response.status}] for {ip}; attempt: {counter}")
+            if counter > 10:
+                return job
+            await asyncio.sleep(10)
+            continue
+
+        fail_messages = [
+            "failed",
+            "completed with errors",
+            "Not one",
+            "not compliant",
+            "Unable",
+            "The system could not be shut down",
+            "No device configuration",
+        ]
+
+        success_messages = [
+            "Successfully imported",
+            "completed with errors",
+            "Successfully imported",
+        ]
+
+        reboot_messages = [
+            "No reboot Server",
+        ]
+
+        no_change_messages = [
+            "No changes",
+            "No configuration changes",
+        ]
+
+        def job_state(states: list, message: str) -> list:
+            return [state for state in states if state in message]
+
+        if any(
+            job_state(states=fail_messages, message=data["Oem"]["Dell"]["Message"])
+        ):
+            logger.info(
+                f"FAIL -- {job['job_id']} marked as {data['Oem']['Dell']['JobState']} but detected issue(s). "
+                f"See detailed job results below for more information on failure\n"
+                f"Detailed job results for {job['job_id']}\n"
+                f"{data['Oem']['Dell']}\n"
+                f"{data['Messages']}\n"
+            )
+            job["status"] = "failed"
+            return job
+
+        elif any(
+            job_state(
+                states=reboot_messages, message=data["Oem"]["Dell"]["Message"]
+            )
+        ):
+            logger.info(
+                f"REBOOT -- job ID {job['job_id']} successfully marked completed. NoReboot value detected and "
+                f"config changes will not be applied until next manual server reboot\n"
+                f"Detailed job results for {job['job_id']}\n"
+                f"{data['Oem']['Dell']}\n"
+                f"{data['Messages']}\n"
+            )
+            job["status"] = "reboot needed"
+            return job
+
+        elif any(
+            job_state(
+                states=success_messages, message=data["Oem"]["Dell"]["Message"]
+            )
+        ):
+            end = time.perf_counter_ns()
+            completion_time = (end - job["start"]) / 1e9
+
+            logger.info(
+                f"SUCCESS -- job ID {job['job_id']} successfully marked completed\n"
+                f"Detailed job results for job ID {job['job_id']}\n"
+                f"{data['Oem']['Dell']}\n"
+                f"{job['job_id']} completed in: {completion_time:.02f} seconds\n"
+                f"Config results for job ID {job['job_id']}\n"
+                f"{data['Messages']}\n"
+            )
+            job["end"] = end
+            job["completion_time"] = completion_time
+            job["status"] = "completed"
+            return job
+
+        elif any(
+            job_state(
+                states=no_change_messages, message=data["Oem"]["Dell"]["Message"]
+            )
+        ):
+            logger.info(
+                f"NO CHANGE -- job ID {job['job_id']} marked completed\n"
+                f"Detailed job results for job ID {job['job_id']}\n"
+            )
+            job["status"] = "no change"
+            return job
+
         else:
-            status = response.status
-            data = response.json()
-            if status != 202 or 200:
-                logger.info(f"FAIL -- Got response [{response.status}] for {ip}")
-                await asyncio.sleep(10)
-                continue
-
-            fail_messages = [
-                "failed",
-                "completed with errors",
-                "Not one",
-                "not compliant",
-                "Unable",
-                "The system could not be shut down",
-                "No device configuration",
-            ]
-
-            success_messages = [
-                "Successfully imported",
-                "completed with errors",
-                "Successfully imported",
-            ]
-
-            reboot_messages = [
-                "No reboot Server",
-            ]
-
-            no_change_messages = [
-                "No changes",
-                "No configuration changes",
-            ]
-
-            def job_state(states: list, message: str) -> list:
-                return [state for state in states if state in message]
-
-            if any(
-                job_state(states=fail_messages, message=data["Oem"]["Dell"]["Message"])
-            ):
-                logger.info(
-                    f"FAIL -- {job['job_id']} marked as {data['Oem']['Dell']['JobState']} but detected issue(s). "
-                    f"See detailed job results below for more information on failure\n"
-                    f"Detailed job results for {job['job_id']}\n"
-                    f"{data['Oem']['Dell']}\n"
-                    f"{data['Messages']}\n"
-                )
-                job["status"] = "failed"
-                return job
-
-            elif any(
-                job_state(
-                    states=reboot_messages, message=data["Oem"]["Dell"]["Message"]
-                )
-            ):
-                logger.info(
-                    f"REBOOT -- job ID {job['job_id']} successfully marked completed. NoReboot value detected and "
-                    f"config changes will not be applied until next manual server reboot\n"
-                    f"Detailed job results for {job['job_id']}\n"
-                    f"{data['Oem']['Dell']}\n"
-                    f"{data['Messages']}\n"
-                )
-                job["status"] = "reboot needed"
-                return job
-
-            elif any(
-                job_state(
-                    states=success_messages, message=data["Oem"]["Dell"]["Message"]
-                )
-            ):
-                end = time.perf_counter_ns()
-                completion_time = (end - job["start"]) / 1e9
-
-                logger.info(
-                    f"SUCCESS -- job ID {job['job_id']} successfully marked completed\n"
-                    f"Detailed job results for job ID {job['job_id']}\n"
-                    f"{data['Oem']['Dell']}\n"
-                    f"{job['job_id']} completed in: {completion_time:.02f} seconds\n"
-                    f"Config results for job ID {job['job_id']}\n"
-                    f"{data['Messages']}\n"
-                )
-                job["end"] = end
-                job["completion_time"] = completion_time
-                job["status"] = "completed"
-                return job
-
-            elif any(
-                job_state(
-                    states=no_change_messages, message=data["Oem"]["Dell"]["Message"]
-                )
-            ):
-                logger.info(
-                    f"NO CHANGE -- job ID {job['job_id']} marked completed\n"
-                    f"Detailed job results for job ID {job['job_id']}\n"
-                )
-                job["status"] = "no change"
-                return job
-
-            else:
-                logger.info(
-                    f"STATUS -- JobStatus not completed, current status: {data['Oem']['Dell']['Message']}, "
-                    f"percent complete: {data['Oem']['Dell']['PercentComplete']}"
-                )
-                await asyncio.sleep(10)
-                continue
+            logger.info(
+                f"STATUS -- JobStatus not completed, current status: {data['Oem']['Dell']['Message']}, "
+                f"percent complete: {data['Oem']['Dell']['PercentComplete']}"
+            )
+            await asyncio.sleep(10)
+            continue
 
 
 async def get_status(
