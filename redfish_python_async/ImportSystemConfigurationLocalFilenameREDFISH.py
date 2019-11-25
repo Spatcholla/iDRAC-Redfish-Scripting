@@ -35,6 +35,7 @@ async def main(
     job = locals()
 
     config = get_config(filename)
+    job['node'] = '3VC6BZ2'
 
     auth = aiohttp.BasicAuth(login=username, password=password)
 
