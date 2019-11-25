@@ -66,7 +66,9 @@ async def parse_status(ip: str, job_id: str, session: ClientSession, **kwargs) -
     counter = 0
     while True:
         response = await get_status(ip=ip, job_id=job_id, session=session)
-        data = response.json()
+        data = await response.json()
+
+        print(f"Response code: {response.status}; Type: {type(response.status)}; Equals 202, {response.status == 202}")
 
         if response.status != 202 or 200:
             counter += 1
